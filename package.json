@@ -1,0 +1,1 @@
+{"name":"meta-universe-minor","version":"1.0.0","private":true,"description":"Single-process game backend","main":"server.js","scripts":{"start":"node server.js","test":"node --test"},"engines":{"node":">=22"},"dependencies":{"better-sqlite3":"^12.2.0","ws":"^8.18.3"}}

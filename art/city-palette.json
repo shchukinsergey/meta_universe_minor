@@ -1,0 +1,25 @@
+{
+  "name": "AERIS Quiet Islands — Museum Test",
+  "colors": [
+    "#1C202A",
+    "#303944",
+    "#555B62",
+    "#787B78",
+    "#9B998D",
+    "#C5BBA3",
+    "#E6D8BA",
+    "#4A3735",
+    "#755748",
+    "#A07A60",
+    "#274653",
+    "#3D6570",
+    "#669084",
+    "#26506A",
+    "#68A8AD",
+    "#EFC77F"
+  ],
+  "max_colors": 16,
+  "alpha": "transparent or fully opaque; no matte fringe",
+  "lighting": "upper-left key, lower-right shadow",
+  "notes": "Test-asset palette only; revise explicitly before any expansion."
+}
