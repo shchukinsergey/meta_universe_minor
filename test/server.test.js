@@ -2,13 +2,11 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { once } = require('node:events');
 const { createApp } = require('../server');
-const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const tempDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'meta-universe-test-'));
 const cleanDir = dir => fs.rmSync(dir, { recursive: true, force: true });
-const generatedTestPassword = () => crypto.randomBytes(32).toString('hex');
 
 test('real HTTP auth/profile/work APIs and authenticated WebSocket room', async (t) => {
   const dir = tempDir();
@@ -20,9 +18,9 @@ test('real HTTP auth/profile/work APIs and authenticated WebSocket room', async 
   const base = `http://127.0.0.1:${server.address().port}`;
   const req = (path, opts = {}) => fetch(base + path, opts);
   let r = await req('/health'); assert.equal(r.status, 200); assert.equal((await r.json()).ok, true);
-  r = await req('/api/register', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:'Test_User',password:generatedTestPassword()})});
+  r = await req('/api/guest', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:'Test_User'})});
   assert.equal(r.status, 201); const cookie = r.headers.get('set-cookie').split(';')[0];
-  r = await req('/api/me',{headers:{cookie}}); const me = await r.json(); assert.equal(me.user.username,'Test_User'); assert.equal('passwordHash' in me.user,false);
+  r = await req('/api/me',{headers:{cookie}}); const me = await r.json(); assert.equal(me.user.username,'Test_User'); assert.equal(me.user.guest,true); assert.equal('passwordHash' in me.user,false);
   r = await req('/api/profile',{method:'PUT',headers:{cookie,'content-type':'application/json'},body:JSON.stringify({profile:{face:'(•‿•)',color:'#abcdef',equipped:'scarf',owned:['scarf'],favorites:[],reactions:[]}})}); assert.equal(r.status,200);
   r = await req('/api/works',{method:'POST',headers:{cookie,'content-type':'application/json'},body:JSON.stringify({title:'A work',bg:'#fff',shape:'circle',symbol:'★',color:'#123456'})}); assert.equal(r.status,201);
   const ws = new WebSocket(`ws://127.0.0.1:${server.address().port}/ws`, {headers:{cookie,origin:base}});
@@ -37,8 +35,9 @@ test('real HTTP auth/profile/work APIs and authenticated WebSocket room', async 
 test('rejects invalid usernames and unauthenticated APIs', async (t) => {
  const dir=tempDir(); const app=createApp({dataDir:dir,secureCookies:false}); app.server.listen(0,'127.0.0.1'); await once(app.server,'listening'); t.after(async()=>{await app.close();cleanDir(dir)});
  const b=`http://127.0.0.1:${app.server.address().port}`;
- let r=await fetch(b+'/api/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:'x!',password:generatedTestPassword()})}); assert.equal(r.status,400);
- r=await fetch(b+'/api/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:'Valid_Name',password:'x'.repeat(5000)})}); assert.equal(r.status,400);
+ let r=await fetch(b+'/api/guest',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:'  '})}); assert.equal(r.status,400);
+ r=await fetch(b+'/api/guest',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:'x'.repeat(21)})}); assert.equal(r.status,400);
+ assert.equal((await fetch(b+'/api/register',{method:'POST'})).status,404);
  r=await fetch(b+'/api/profile'); assert.equal(r.status,401);
 });
 
@@ -49,11 +48,11 @@ test('accepts HTTPS origin when Amvera terminates TLS before the Node app', asyn
   await once(app.server, 'listening');
   t.after(async () => { await app.close(); cleanDir(dir); });
   const host = `127.0.0.1:${app.server.address().port}`;
-  const response = await fetch(`http://${host}/api/register`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: 'Proxy_User', password: generatedTestPassword() }),
-  });
+  const response = await fetch(`http://${host}/api/guest`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: 'Proxy_User' }),
+    });
   assert.equal(response.status, 201);
   const cookie = response.headers.get('set-cookie').split(';')[0];
   const ws = new WebSocket(`ws://${host}/ws`, {
@@ -68,4 +67,26 @@ test('accepts HTTPS origin when Amvera terminates TLS before the Node app', asyn
   assert.equal((await initMessage).type, 'init');
   ws.close();
   await once(ws, 'close');
+});
+
+test('nickname-only guest session reconnects on reload without registration', async (t) => {
+  const dir = tempDir();
+  const app = createApp({ dataDir: dir, secureCookies: false });
+  app.server.listen(0, '127.0.0.1');
+  await once(app.server, 'listening');
+  t.after(async () => { await app.close(); cleanDir(dir); });
+  const base = `http://127.0.0.1:${app.server.address().port}`;
+  let r = await fetch(base + '/api/guest', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({username:'Лис'}) });
+  assert.equal(r.status, 201);
+  const cookie = r.headers.get('set-cookie').split(';')[0];
+  r = await fetch(base + '/api/me', {headers:{cookie}});
+  const data = await r.json();
+  assert.equal(data.user.username, 'Лис');
+  assert.equal(data.user.guest, true);
+    r = await fetch(base + '/api/guest', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({username:'Лис'}) });
+    const second = await r.json();
+    assert.equal(second.user.username, 'Лис');
+    assert.notEqual(second.user.id, data.user.id);
+    assert.equal((await fetch(base + '/api/register', {method:'POST'})).status, 404);
+    assert.equal((await fetch(base + '/api/login', {method:'POST'})).status, 404);
 });
