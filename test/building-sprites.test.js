@@ -78,3 +78,30 @@ test('every building has reusable placement, scale, anchor, collision and entran
   assert.ok(/imageSmoothingEnabled\s*=\s*false/.test(html), 'pixel smoothing is not disabled');
   assert.ok(/drawImage\s*\(/.test(html), 'Canvas2D drawImage is not used');
 });
+
+test('every building has one entrance-anchored AERIS label with a non-overlapping footprint', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const specs = readBuildingSpecs();
+  const expected = { gallery: 'МУЗЕЙ', shop: 'ШОУРУМ', workshop: 'ДЕПАРТАМЕНТ\nБЛАГОУСТРОЙСТВА', observatory: 'ОБСЕРВАТОРИЯ', castle: 'АРХИВ' };
+  const boxes = [];
+  for (const [id, spec] of Object.entries(specs)) {
+    assert.equal(spec.label?.title, expected[id], `${id} label title`);
+    assert.ok(spec.label.icon && Number.isFinite(spec.label.offset.dx) && Number.isFinite(spec.label.offset.dy), `${id} label icon/offset`);
+    const entrance = { u: spec.position.u + spec.entrance.u + spec.label.offset.u, v: spec.position.v + spec.entrance.v + spec.label.offset.v };
+    const x = 2200 + (entrance.u - entrance.v) * 32 + spec.label.offset.dx;
+    const y = 1500 + (entrance.u + entrance.v) * 16 + spec.label.offset.dy;
+    const lines = spec.label.title.split('\n');
+    const width = Math.max(142, ...lines.map(line => line.length * 7.2)) + 34;
+    const height = 16 + lines.length * 14 + (spec.label.locked ? 13 : 0);
+    boxes.push({ id, left: x-width/2, right: x+width/2, top: y, bottom: y+height });
+    if (['castle','observatory'].includes(id)) assert.equal(spec.label.locked, true, `${id} must be marked unavailable`);
+  }
+  for (let i=0;i<boxes.length;i++) for (let j=i+1;j<boxes.length;j++) {
+    const a=boxes[i],b=boxes[j];
+    assert.ok(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top, `${a.id} label overlaps ${b.id}`);
+  }
+  assert.ok(html.includes('class BuildingLabelRenderer'), 'missing shared Canvas label component');
+  assert.ok(html.includes('this.labelRenderer.draw(c,b,'), 'labels are not rendered in the foreground pass');
+  assert.ok(html.includes("this.interaction.nearby?.type==='door'"), 'nearby state is not linked to InteractionSystem');
+  assert.ok(html.includes('active=active&&!locked'), 'a nearby locked label must stay muted');
+});
