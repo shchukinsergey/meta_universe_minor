@@ -158,8 +158,11 @@ test('decoration placement validates geometry and synchronizes concurrent graffi
  const snapshot=await f.connect(a.cookie);await new Promise(resolve=>setTimeout(resolve,15));
  assert.ok(snapshot.find(e=>e.type==='init').decorations.some(d=>d.id===id2&&d.layerOrder===results[1].data.decoration.layerOrder));
  const wall=(await f.call(a.cookie,'/api/decorations','POST',{...graffiti,surface:'wall'})).data.decoration.id;
- assert.equal((await place(a.cookie,wall,{surfaceId:'shop-facade',x:0,y:.5})).status,400);
- assert.equal((await place(a.cookie,wall,{surfaceId:'shop-facade',x:.5,y:.5},1.35,45)).status,200);
+ assert.equal((await place(a.cookie,wall,{surfaceId:'observatory-facade',x:0,y:.5})).status,400);
+ assert.equal((await place(a.cookie,wall,{surfaceId:'observatory-facade',x:.5,y:.5},1.35,45)).status,200);
+ const archiveWall=(await f.call(a.cookie,'/api/decorations','POST',{...graffiti,surface:'wall'})).data.decoration.id;
+ assert.equal((await place(a.cookie,archiveWall,{surfaceId:'castle-facade',x:.5,y:.5})).status,200);
+ for(const surfaceId of ['shop-facade','workshop-facade']){const draft=(await f.call(a.cookie,'/api/decorations','POST',{...graffiti,surface:'wall'})).data.decoration.id;assert.equal((await place(a.cookie,draft,{surfaceId,x:.5,y:.5})).status,400);}
  assert.equal((await f.call(a.cookie,`/api/decorations/${id1}`,'DELETE')).status,200);
  await new Promise(resolve=>setTimeout(resolve,20));assert.ok(y.some(e=>e.type==='decoration_remove'&&e.id===id1));
  assert.equal((await f.call(b.cookie,`/api/decorations/${id2}`,'DELETE')).status,200);

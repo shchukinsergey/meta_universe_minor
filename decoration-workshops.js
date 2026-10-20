@@ -76,10 +76,17 @@ class DecorationWorkshops {
     }catch(e){game.ui.toast('Не удалось перенести старый объект: '+e.message)}}
   }
   async save(type,params){const user=game.backend.user?.id;if(!user){game.ui.toast('Войдите в игру, чтобы создать объект');return false}
-    try{await game.backend.createDecoration({type,...params});return true}catch(e){game.ui.toast('Не удалось создать объект: '+e.message);return false}}
+    if(this.creating)return false;
+    const cost=10,data=game.storage.data;
+    if(!Number.isSafeInteger(data.coins)||data.coins<cost){game.ui.toast('Недостаточно монет: нужно 10');return false}
+    this.creating=true;data.coins-=cost;game.storage.save();game.ui.updateProfile();
+    try{await game.backend.createDecoration({type,...params});return true}
+    catch(e){data.coins+=cost;game.storage.save();game.ui.updateProfile();game.ui.toast('Не удалось создать объект: '+e.message);return false}
+    finally{this.creating=false}}
+
   menu(){game.ui.show('<div class="eyebrow">ДЕПАРТАМЕНТ БЛАГОУСТРОЙСТВА</div><h2>Выберите мастерскую</h2><p>Создайте композицию цветов или рисунок для города.</p><div class="decoration-menu"><button id="openFlowers">Цветочная мастерская</button><button id="openGraffiti">Граффити-мастерская</button><button id="openDecorations">Мои объекты</button></div>');$('#openFlowers').onclick=()=>this.open('flower');$('#openGraffiti').onclick=()=>this.open('graffiti');$('#openDecorations').onclick=()=>this.inventory()}
   open(type){const flower=type==='flower',options=DECORATION_OPTIONS;
-    game.ui.show('<div class="eyebrow">ДЕПАРТАМЕНТ БЛАГОУСТРОЙСТВА / '+(flower?'ЦВЕТЫ':'ГРАФФИТИ')+'</div><h2>'+(flower?'Цветочная мастерская':'Граффити-мастерская')+'</h2><canvas class="decoration-preview" id="decorationPreview" width="320" height="180" aria-label="Предпросмотр композиции"></canvas><div class="decoration-controls" id="decorationControls"></div><p class="decoration-note" id="decorationNote">Объекты сохраняются на сервере и видны другим игрокам после размещения.</p><button class="primary wide" id="createDecoration">'+(flower?'Создать композицию':'Создать граффити')+'</button><button class="wide" id="viewDecorations">Мои объекты</button>');
+    game.ui.show('<div class="eyebrow">ДЕПАРТАМЕНТ БЛАГОУСТРОЙСТВА / '+(flower?'ЦВЕТЫ':'ГРАФФИТИ')+'</div><h2>'+(flower?'Цветочная мастерская':'Граффити-мастерская')+'</h2><canvas class="decoration-preview" id="decorationPreview" width="320" height="180" aria-label="Предпросмотр композиции"></canvas><div class="decoration-controls" id="decorationControls"></div><p class="decoration-note" id="decorationNote">Объекты сохраняются на сервере и видны другим игрокам после размещения.</p><button class="primary wide" id="createDecoration">'+(flower?'Создать композицию · 10 монет':'Создать граффити · 10 монет')+'</button><button class="wide" id="viewDecorations">Мои объекты</button>');
     const controls=$('#decorationControls');const addSelect=(id,title,items)=>{const label=document.createElement('label');label.textContent=title;label.htmlFor=id;const select=document.createElement('select');select.id=id;for(const [value,name] of items){const opt=document.createElement('option');opt.value=value;opt.textContent=name;select.append(opt)}const group=document.createElement('div');group.append(label,select);controls.append(group);return select};
     if(flower){addSelect('decFlower','Тип цветов',options.flowerTypes);addSelect('decColor','Цвет',options.flowerColors.map(row=>row.slice(0,2)));addSelect('decForm','Форма посадки',options.flowerForms)}
     else{addSelect('decTemplate','Шаблон',options.graffitiTypes);addSelect('decPrimary','Основной цвет',options.flowerColors.map(row=>row.slice(0,2)));addSelect('decSecondary','Дополнительный цвет',options.flowerColors.map(row=>row.slice(0,2)));addSelect('decSize','Размер',options.sizes);addSelect('decSurface','Поверхность',options.surfaces);$('#decSecondary').value='blue'}

@@ -1,7 +1,7 @@
 // Server-authoritative decoration placement; only sprite and surface caches live in the browser.
 const DECORATION_ZONES={
   flowers:[[-5,-3],[-4,-3],[-5,-2],[-4,-2],[4,3],[5,3],[4,4],[5,4]],
-  walls:[{id:'shop-facade',buildingId:'shop',orientation:'front'},{id:'workshop-facade',buildingId:'workshop',orientation:'front'}]
+  walls:[{id:'observatory-facade',buildingId:'observatory',orientation:'front'},{id:'castle-facade',buildingId:'castle',orientation:'front'}]
 };
 const decorationCell=(cells,u,v)=>cells.some(([a,b])=>a===u&&b===v);
 const FLOOR_SURFACE_ID='city-floor';
@@ -21,7 +21,7 @@ function decorationPlacementValid(item,target,world,placed=[],actors=[],doors=[]
   if(item.type==='graffiti'&&item.surface==='floor'){
     const {u,v}=target;if(!Number.isFinite(u)||!Number.isFinite(v))return false;
     const tile=world.tile(Math.round(u),Math.round(v));
-    return (!target.surfaceId||target.surfaceId===FLOOR_SURFACE_ID)&&!!tile&&['paving','bridge'].includes(tile.kind);
+    return (!target.surfaceId||target.surfaceId===FLOOR_SURFACE_ID)&&!!tile&&tile.decorationAllowed!==false&&['paving','bridge'].includes(tile.kind);
   }
   if(item.type!=='flower')return false;
   const {u,v}=target;if(!Number.isInteger(u)||!Number.isInteger(v)||!decorationCell(DECORATION_ZONES.flowers,u,v))return false;
@@ -32,7 +32,7 @@ function decorationPlacementValid(item,target,world,placed=[],actors=[],doors=[]
 function decorationFacade(wall){
   const spec=BUILDING_SPECS[wall.buildingId];if(!spec||spec.sprite)return null;
   const {u,v}=spec.position,D=P(u-3.5,v+2.5),C=P(u+2.5,v+2.5);
-  const h=wall.buildingId==='workshop'?85:120;
+  const h=wall.buildingId==='castle'?174:126;
   const at=t=>({x:D.x+(C.x-D.x)*t,y:D.y+(C.y-D.y)*t-h+15});
   const a=at(.2),b=at(.8),height=h-30;
   return {a,b,height,center:{x:(a.x+b.x)/2,y:(a.y+b.y)/2+height/2}}
@@ -120,7 +120,13 @@ class DecorationPlacement {
       if(chunk.x+256<game.camera.x||chunk.x>game.camera.x+game.view.width||chunk.y+256<game.camera.y||chunk.y>game.camera.y+game.view.height)continue;
       c.drawImage(chunk.canvas,chunk.x,chunk.y)
     }}
-  drawFacade(c,building){const wall=DECORATION_ZONES.walls.find(w=>w.buildingId===building.id);if(!wall)return;const layers=this.layers(wall.id);if(!layers.length)return;
+  drawFacade(c,building){const wall=DECORATION_ZONES.walls.find(w=>w.buildingId===building.id);if(!wall)return;
+    const region=decorationFacade(wall);if(!region)return;
+    // A clear wall panel replaces windows only inside the two designated drawing areas.
+    c.save();c.beginPath();c.moveTo(region.a.x,region.a.y);c.lineTo(region.b.x,region.b.y);
+    c.lineTo(region.b.x,region.b.y+region.height);c.lineTo(region.a.x,region.a.y+region.height);c.closePath();
+    c.fillStyle=building.id==='castle'?'#6e7b94':'#cccfca';c.fill();c.restore();
+    const layers=this.layers(wall.id);if(!layers.length)return;
     let canvas=this.surfaceCache.get(wall.id);if(!canvas){canvas=document.createElement('canvas');canvas.width=256;canvas.height=192;const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
       for(const item of layers)drawWallGraffiti(ctx,item,this.sprite(item));this.surfaceCache.set(wall.id,canvas)}
     const r=decorationFacade(wall);c.save();c.transform((r.b.x-r.a.x)/256,(r.b.y-r.a.y)/256,0,r.height/192,r.a.x,r.a.y);c.drawImage(canvas,0,0);c.restore()}

@@ -35,7 +35,7 @@ test('placement is limited to explicit free cells, no doors, avatars or occupied
 test('graffiti may be placed anywhere on city paving or a bridge, under objects and other paint',()=>{
   const world={tile:()=>({kind:'paving',blocked:true})};
   const floor={type:'graffiti',surface:'floor',size:'M',scale:1};
-  assert.deepEqual(DECORATION_ZONES.walls.map(x=>x.buildingId).sort(),['shop','workshop']);
+  assert.deepEqual(DECORATION_ZONES.walls.map(x=>x.buildingId).sort(),['castle','observatory']);
   assert.ok(DECORATION_ZONES.walls.every(x=>!('u' in x)&&!('v' in x)),'no freestanding walls');
   assert.equal('floorSurfaces' in DECORATION_ZONES,false);
   const target={u:15.2,v:-10.7,surfaceId:'city-floor'};
@@ -68,4 +68,11 @@ test('server snapshot renders placed objects from all owners in server layer ord
     assert.deepEqual(placement.layers('city-floor').map(x=>x.id),['earlier','later']);
     assert.equal(placement.occupied(2,3),true);
   }finally{global.game=previous}
+});
+
+test('wall graffiti is limited to observatory and archive, leaving active buildings untouched',()=>{
+ assert.deepEqual(DECORATION_ZONES.walls.map(w=>w.buildingId),['observatory','castle']);
+ const item={type:'graffiti',surface:'wall',size:'M',scale:1,rotation:0};
+ for(const wallId of ['observatory-facade','castle-facade'])assert.equal(decorationPlacementValid(item,{wallId,x:.5,y:.5}),true);
+ for(const wallId of ['shop-facade','workshop-facade'])assert.equal(decorationPlacementValid(item,{wallId,x:.5,y:.5}),false);
 });

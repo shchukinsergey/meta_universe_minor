@@ -25,7 +25,7 @@ function validPlacement(d,b){if(!plain(b)||!plain(b.placement)||!finite(b.scale)
  const p=b.placement;
  if(d.type==='flower')return (p.surfaceId===undefined||p.surfaceId==='city-floor')&&Object.keys(p).every(k=>['surfaceId','u','v'].includes(k))&&FLOWER_CELLS.has(`${p.u},${p.v}`)&&Number.isInteger(p.u)&&Number.isInteger(p.v);
  if(d.surface==='floor')return p.surfaceId==='city-floor'&&Object.keys(p).every(k=>['surfaceId','u','v'].includes(k))&&cityTile(p.u,p.v);
- if(!['shop-facade','workshop-facade'].includes(p.surfaceId)||!Object.keys(p).every(k=>['surfaceId','x','y'].includes(k))||!finite(p.x)||!finite(p.y))return false;
+ if(!['observatory-facade','castle-facade'].includes(p.surfaceId)||!Object.keys(p).every(k=>['surfaceId','x','y'].includes(k))||!finite(p.x)||!finite(p.y))return false;
  const rad=b.rotation*Math.PI/180,extent=.48*({S:.55,M:.75,L:.95}[d.size])*b.scale*(Math.abs(Math.cos(rad))+Math.abs(Math.sin(rad)))/2;
  return p.x-extent>=-1e-7&&p.x+extent<=1+1e-7&&p.y-extent>=-1e-7&&p.y+extent<=1+1e-7;
 }
